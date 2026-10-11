@@ -74,8 +74,8 @@ class Prefs(ctx: Context) {
         set(v) = put("lastError", v)
     /** Тимчасовий напис замість часу оновлення ("оновлюю…"). */
     var status: String?
-        get() = str("status")
-        set(v) = put("status", v)
+        get() = str("status")?.takeIf { System.currentTimeMillis() - sp.getLong("statusAt", 0L) < 90_000 }
+        set(v) = sp.edit().putString("status", v).putLong("statusAt", System.currentTimeMillis()).apply()
 
     fun saveReading(r: Reading) {
         soc = r.soc

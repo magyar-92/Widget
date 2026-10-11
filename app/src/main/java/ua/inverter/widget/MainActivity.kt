@@ -50,14 +50,19 @@ class MainActivity : Activity() {
             btn.isEnabled = false
             out.text = "Підключаюся до хмари…"
             io.execute {
+                val started = System.currentTimeMillis()
+                val step = { msg: String ->
+                    val sec = (System.currentTimeMillis() - started) / 1000
+                    runOnUiThread { out.text = "$msg ($sec с)" }
+                }
                 val text = try {
-                    val api = InverterApi(this)
+                    val api = InverterApi(this, step)
                     val dev = if (prefs.sn == null) api.discover() else "Інвертор SN ${prefs.sn}"
-                    val r = UpdateWorker.refresh(this) ?: throw ApiException(prefs.lastError ?: "невідома помилка")
+                    val r = UpdateWorker.refresh(this, step) ?: throw ApiException(prefs.lastError ?: "невідома помилка")
                     UpdateWorker.schedule(this)
                     buildString {
                         append("✅ $dev\n\n")
-                        append("АКБ: ${r.soc?.let { "${it}%" } ?: "не знайдено"}\n")
+                        append("АКБ: ${r.soc?.let { "${it.toInt()}%" } ?: "не знайдено"}\n")
                         append("Навантаження: ${r.loadW?.let { "$it W" } ?: r.loadPct?.let { "$it %" } ?: "не знайдено"}\n")
                         r.batteryV?.let { append("Напруга АКБ: $it V\n") }
                         append("\nТепер додайте віджет «Інвертор» на головний екран. ")

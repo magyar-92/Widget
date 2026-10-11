@@ -28,7 +28,7 @@ class UpdateWorker(ctx: Context, params: WorkerParameters) : Worker(ctx, params)
             .build()
 
         /** Синхронне оновлення: запит до хмари, збереження, перемальовування віджета. */
-        fun refresh(ctx: Context): Reading? {
+        fun refresh(ctx: Context, onStep: (String) -> Unit = {}): Reading? {
             val prefs = Prefs(ctx)
             prefs.lastAttempt = System.currentTimeMillis()
             var reading: Reading? = null
@@ -36,7 +36,7 @@ class UpdateWorker(ctx: Context, params: WorkerParameters) : Worker(ctx, params)
                 prefs.lastError = "Відкрийте застосунок і введіть логін SmartESS"
             } else {
                 try {
-                    reading = InverterApi(ctx).read()
+                    reading = InverterApi(ctx, onStep).read()
                     prefs.saveReading(reading)
                 } catch (e: Exception) {
                     prefs.lastError = e.message ?: e.toString()

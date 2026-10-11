@@ -29,7 +29,7 @@ data class Reading(
  * Підпис запитів: SHA1(salt + SHA1(пароль) + action) для входу,
  * SHA1(salt + secret + token + action) для решти запитів.
  */
-class InverterApi(ctx: Context) {
+class InverterApi(ctx: Context, private val onStep: (String) -> Unit = {}) {
     private val prefs = Prefs(ctx)
 
     companion object {
@@ -53,11 +53,19 @@ class InverterApi(ctx: Context) {
 
     private fun httpGet(url: String): JSONObject {
         val c = URL(url).openConnection() as HttpURLConnection
-        c.connectTimeout = 15_000
-        c.readTimeout = 20_000
+        c.connectTimeout = 10_000
+        c.readTimeout = 15_000
         c.setRequestProperty("User-Agent", "inverter-widget/1.0")
         try {
-            val code = c.responseCode
+            val code = try {
+                c.responseCode
+            } catch (e: java.net.UnknownHostException) {
+                throw ApiException("Немає інтернету або хмара DessMonitor недоступна")
+            } catch (e: java.net.SocketTimeoutException) {
+                throw ApiException("Хмара DessMonitor не відповідає (тайм-аут)")
+            } catch (e: java.io.IOException) {
+                throw ApiException("Помилка з'єднання: ${e.message}")
+            }
             val stream = if (code in 200..299) c.inputStream else c.errorStream
             val body = stream?.bufferedReader()?.use { it.readText() } ?: ""
             if (code !in 200..299) throw ApiException("HTTP $code")
@@ -76,6 +84,7 @@ class InverterApi(ctx: Context) {
     fun authenticate() {
         val user = prefs.user ?: throw ApiException("Не вказано логін")
         val pwd = prefs.pwdSha1 ?: throw ApiException("Не вказано пароль")
+        onStep("Вхід у хмару…")
         var last: Exception? = null
         // authSource — поточний спосіб входу DessMonitor; auth — старий, як запасний
         for ((action, source) in listOf("authSource" to "1", "auth" to "0")) {
@@ -96,11 +105,12 @@ class InverterApi(ctx: Context) {
                 prefs.secret = dat.getString("secret")
                 prefs.tokenExp = System.currentTimeMillis() / 1000 + dat.optLong("expire", 3600) - 60
                 return
-            } catch (e: Exception) {
+            } catch (e: ApiException) {
+                if (e.message?.startsWith(action) != true) throw e // мережева помилка — не повторюємо
                 last = e
             }
         }
-        throw last ?: ApiException("Не вдалося увійти")
+        throw ApiException("Не вдалося увійти: ${last?.message}. Перевірте логін і пароль SmartESS.")
     }
 
     private fun signedCall(action: String, params: List<Pair<String, String>>): JSONObject {
@@ -117,7 +127,8 @@ class InverterApi(ctx: Context) {
         return try {
             signedCall(action, params)
         } catch (e: ApiException) {
-            if (!retryAuth) throw e
+            // Повторний вхід лише при відмові API (протух токен), не при мережевій помилці
+            if (!retryAuth || e.message?.startsWith(action) != true) throw e
             authenticate() // токен міг протухнути на сервері — входимо ще раз
             signedCall(action, params)
         }
@@ -125,6 +136,7 @@ class InverterApi(ctx: Context) {
 
     /** Знаходить інвертор в акаунті й запам'ятовує pn/sn/devcode/devaddr. Повертає опис. */
     fun discover(): String {
+        onStep("Шукаю інвертор в акаунті…")
         val want = prefs.wantedSn?.trim()?.takeIf { it.isNotEmpty() }
         val found = mutableListOf<String>()
         val plants = call("queryPlants", listOf("pagesize" to "50"))
@@ -164,6 +176,7 @@ class InverterApi(ctx: Context) {
             "devaddr" to prefs.devaddr!!,
             "sn" to prefs.sn!!,
         )
+        onStep("Читаю дані інвертора…")
         val fields = mutableListOf<Field>()
         collect(call("queryDeviceLastData", dev + ("i18n" to "en")).opt("dat"), fields)
         var r = interpret(fields)
@@ -174,6 +187,7 @@ class InverterApi(ctx: Context) {
                 "webQueryDeviceEnergyFlowEs" to listOf("i18n" to "en_US"),
             )
             for ((action, p) in extra) {
+                onStep("Шукаю заряд у додаткових даних…")
                 try {
                     collect(call(action, p + dev, retryAuth = false).opt("dat"), fields)
                 } catch (_: Exception) {
