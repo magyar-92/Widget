@@ -38,6 +38,7 @@ class UpdateWorker(ctx: Context, params: WorkerParameters) : Worker(ctx, params)
                 try {
                     reading = InverterApi(ctx, onStep).read()
                     prefs.saveReading(reading)
+                    Alerts.check(ctx, reading.soc)
                 } catch (e: Exception) {
                     prefs.lastError = e.message ?: e.toString()
                 }

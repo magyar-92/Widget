@@ -63,6 +63,17 @@ class Prefs(ctx: Context) {
     var batteryV: Double?
         get() = dbl("batteryV")
         set(v) = putDbl("batteryV", v)
+    var pvW: Double?
+        get() = dbl("pvW")
+        set(v) = putDbl("pvW", v)
+    /** Поріг сповіщення про низький заряд, %. */
+    var alertThreshold: Int
+        get() = sp.getInt("alertThreshold", 30)
+        set(v) = sp.edit().putInt("alertThreshold", v).apply()
+    /** Чи вже надіслано сповіщення (скидається, коли заряд піднявся на 5 % вище порогу). */
+    var lowAlerted: Boolean
+        get() = sp.getBoolean("lowAlerted", false)
+        set(v) = sp.edit().putBoolean("lowAlerted", v).apply()
     var lastSuccess: Long
         get() = sp.getLong("lastSuccess", 0L)
         set(v) = sp.edit().putLong("lastSuccess", v).apply()
@@ -82,6 +93,7 @@ class Prefs(ctx: Context) {
         loadW = r.loadW
         loadPct = r.loadPct
         batteryV = r.batteryV
+        pvW = r.pvW
         lastSuccess = System.currentTimeMillis()
         lastError = null
     }

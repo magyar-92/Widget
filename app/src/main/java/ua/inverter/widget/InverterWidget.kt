@@ -48,7 +48,7 @@ class InverterWidget : AppWidgetProvider() {
         private const val RED = 0xFFFF5A52.toInt()
         private const val GREY = 0xFFB0B0B0.toInt()
 
-        private fun formatW(w: Double): String =
+        fun formatW(w: Double): String =
             if (w >= 1000) String.format(Locale.US, "%.1f kW", w / 1000) else "${w.roundToInt()} W"
 
         fun render(ctx: Context) {
@@ -71,6 +71,7 @@ class InverterWidget : AppWidgetProvider() {
 
             val load = p.loadW?.let { formatW(it) } ?: p.loadPct?.let { "${it.roundToInt()}%" } ?: "—"
             v.setTextViewText(R.id.load, load)
+            v.setTextViewText(R.id.pv, p.pvW?.let { formatW(it) } ?: "—")
 
             val status = p.status ?: buildString {
                 p.batteryV?.let { append(String.format(Locale.US, "%.1f V · ", it)) }

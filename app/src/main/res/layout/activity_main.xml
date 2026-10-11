@@ -49,12 +49,35 @@
             android:importantForAutofill="no"
             android:inputType="text" />
 
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:text="Сповіщати, коли заряд нижче, %"
+            android:textSize="13sp" />
+
+        <EditText
+            android:id="@+id/threshold"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="30"
+            android:importantForAutofill="no"
+            android:inputType="number"
+            android:maxLength="2" />
+
         <Button
             android:id="@+id/check"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
             android:text="Зберегти й перевірити" />
+
+        <Button
+            android:id="@+id/testAlert"
+            style="?android:attr/borderlessButtonStyle"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Надіслати тестове сповіщення" />
 
         <TextView
             android:id="@+id/result"

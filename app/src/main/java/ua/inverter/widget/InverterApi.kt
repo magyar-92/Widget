@@ -21,6 +21,7 @@ data class Reading(
     val loadW: Double?,
     val loadPct: Double?,
     val batteryV: Double?,
+    val pvW: Double?,
     val fields: List<Field>,
 )
 
@@ -228,6 +229,37 @@ class InverterApi(ctx: Context, private val onStep: (String) -> Unit = {}) {
         return null
     }
 
+    private fun watts(f: Field): Double {
+        val v = f.number!!
+        return if (f.unit.trim().equals("kw", ignoreCase = true)) v * 1000 else v
+    }
+
+    /** Потужність сонячних панелей, W: загальна → PV1+PV2 → напруга × струм. */
+    private fun pvPower(fields: List<Field>): Double? {
+        val isPv = { f: Field -> f.text.contains("pv") || f.text.contains("solar") }
+        val skip = { f: Field ->
+            listOf("rated", "setting", "max", "energy", "generation", "kwh").any { f.text.contains(it) } ||
+                f.unit.contains("h", ignoreCase = true)
+        }
+        val isPower = { f: Field -> f.text.contains("power") && !f.text.contains("apparent") }
+
+        first(fields, { isPv(it) && isPower(it) && !skip(it) && (it.text.contains("total") || it.text.contains("sum")) })
+            ?.let { return watts(it) }
+
+        val inputs = fields.filter { it.number != null && isPv(it) && isPower(it) && !skip(it) }
+            .distinctBy { it.text }
+        val numbered = inputs.filter { Regex("pv\\s*[12]").containsMatchIn(it.text) }
+        if (numbered.isNotEmpty()) return numbered.sumOf { watts(it) }
+        inputs.firstOrNull { it.text.contains("input") }?.let { return watts(it) }
+        inputs.firstOrNull { it.text.contains("charg") }?.let { return watts(it) }
+        inputs.firstOrNull()?.let { return watts(it) }
+
+        // Запасний варіант: напруга × струм панелей
+        val v = first(fields, { isPv(it) && it.text.contains("voltage") && !skip(it) })?.number
+        val a = first(fields, { isPv(it) && it.text.contains("current") && !skip(it) && !it.text.contains("charg") })?.number
+        return if (v != null && a != null) v * a else null
+    }
+
     private fun interpret(fields: List<Field>): Reading {
         val isPct = { f: Field -> f.unit.isBlank() || f.unit.contains("%") }
         val socField = first(
@@ -265,6 +297,8 @@ class InverterApi(ctx: Context, private val onStep: (String) -> Unit = {}) {
             { it.text.contains("battery voltage") && !notLoad(it) },
         )?.number
 
-        return Reading(socField?.number, loadW, loadPct, battV, fields.toList())
+        val pvW = pvPower(fields)
+
+        return Reading(socField?.number, loadW, loadPct, battV, pvW, fields.toList())
     }
 }
