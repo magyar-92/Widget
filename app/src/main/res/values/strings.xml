@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Інвертор</string>
+    <string name="widget_desc">Заряд АКБ і навантаження з SmartESS</string>
+    <string name="password_saved">Пароль збережено (введіть, щоб змінити)</string>
+</resources>
