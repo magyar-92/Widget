@@ -70,6 +70,10 @@ class Prefs(ctx: Context) {
     var alertThreshold: Int
         get() = sp.getInt("alertThreshold", 30)
         set(v) = sp.edit().putInt("alertThreshold", v).apply()
+    /** Озвучувати попередження про низький заряд голосом. */
+    var voiceAlerts: Boolean
+        get() = sp.getBoolean("voiceAlerts", true)
+        set(v) = sp.edit().putBoolean("voiceAlerts", v).apply()
     /** Чи вже надіслано сповіщення (скидається, коли заряд піднявся на 5 % вище порогу). */
     var lowAlerted: Boolean
         get() = sp.getBoolean("lowAlerted", false)

@@ -28,14 +28,21 @@ object Alerts {
         Build.VERSION.SDK_INT < 33 ||
             ctx.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
 
-    /** Викликається після кожного оновлення. Одне сповіщення на кожне падіння нижче порогу. */
-    fun check(ctx: Context, soc: Double?) {
-        if (soc == null) return
+    /**
+     * Викликається після кожного оновлення з фонового потоку.
+     * Одне сповіщення (і одна голосова фраза) на кожне падіння нижче порогу.
+     */
+    fun check(ctx: Context, r: Reading) {
+        val soc = r.soc ?: return
         val prefs = Prefs(ctx)
         val threshold = prefs.alertThreshold
         if (soc < threshold && !prefs.lowAlerted) {
-            show(ctx, "🔋 Заряд АКБ ${soc.roundToInt()}%", "Нижче $threshold %. Варто зменшити навантаження.")
             prefs.lowAlerted = true
+            show(ctx, "🔋 Заряд АКБ ${soc.roundToInt()}%", "Нижче $threshold %. Варто зменшити навантаження.")
+            if (prefs.voiceAlerts) {
+                // чекаємо кінця фрази, щоб Android не зупинив фонову задачу посеред мовлення
+                Speaker.speak(ctx, Speaker.lowBatteryText(soc.roundToInt(), r.loadW?.roundToInt()), wait = true)
+            }
         } else if (soc >= threshold + 5 && prefs.lowAlerted) {
             prefs.lowAlerted = false // заряд відновився — наступне падіння знову сповістить
         }

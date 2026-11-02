@@ -5,6 +5,7 @@ import android.app.Activity
 import android.os.Build
 import android.os.Bundle
 import android.widget.Button
+import android.widget.CheckBox
 import android.widget.EditText
 import android.widget.TextView
 import java.util.concurrent.Executors
@@ -24,20 +25,37 @@ class MainActivity : Activity() {
         val threshold = findViewById<EditText>(R.id.threshold)
         val btn = findViewById<Button>(R.id.check)
         val test = findViewById<Button>(R.id.testAlert)
+        val voice = findViewById<CheckBox>(R.id.voice)
         val out = findViewById<TextView>(R.id.result)
 
         user.setText(prefs.user ?: "")
         sn.setText(prefs.wantedSn ?: "")
         threshold.setText(prefs.alertThreshold.toString())
+        voice.isChecked = prefs.voiceAlerts
+        voice.setOnCheckedChangeListener { _, on -> prefs.voiceAlerts = on }
         askNotificationPermission()
 
         test.setOnClickListener {
+            val lines = mutableListOf<String>()
             if (!Alerts.canNotify(this)) {
                 askNotificationPermission()
-                out.text = "Дозвольте сповіщення для застосунку «Інвертор» і натисніть ще раз"
+                lines.add("Дозвольте сповіщення для застосунку «Інвертор» і натисніть ще раз")
             } else {
                 Alerts.show(this, "🔋 Тест: заряд АКБ ${prefs.soc?.toInt() ?: "--"}%", "Так виглядатиме сповіщення про низький заряд.")
-                out.text = "Тестове сповіщення надіслано"
+                lines.add("Тестове сповіщення надіслано")
+            }
+            if (prefs.voiceAlerts) {
+                lines.add("Голос: говорю… (якщо тихо — перевірте гучність сповіщень і беззвучний режим)")
+                out.text = lines.joinToString("\n")
+                val soc = prefs.soc?.toInt() ?: 25
+                Speaker.speak(this, Speaker.lowBatteryText(soc, prefs.loadW?.toInt())) { err ->
+                    runOnUiThread {
+                        lines[lines.lastIndex] = if (err == null) "Голос: ✅ працює" else "Голос: ❌ $err"
+                        out.text = lines.joinToString("\n")
+                    }
+                }
+            } else {
+                out.text = lines.joinToString("\n")
             }
         }
         if (prefs.pwdSha1 != null) pwd.hint = getString(R.string.password_saved)
